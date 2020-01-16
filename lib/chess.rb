@@ -3,6 +3,8 @@
 #could add status messages, e.g. "white moved knight from b1 to c3.  white captured black pawn"
 #
 
+require 'yaml'
+
 class Array
   #use to get destination
   def plus other
@@ -440,6 +442,34 @@ end
 class Game
   attr_accessor :squares, :players, :active_player, :previousMove
 
+    def to_yaml
+    YAML.dump (self)
+    end
+
+    def self.from_yaml(string)
+      object = YAML.load string
+    end
+
+    def save_game
+      dataToSave = self.to_yaml
+      File.open("saved_game.yaml", "w"){|file|
+        file.write self.to_yaml
+        puts "saved game and exited.  Load game the next time you play to continue from where you left off."
+      }
+    end
+
+    def self.load_game
+      begin
+        File.open("saved_game.yaml", "r"){|file|
+          return YAML.load (file)
+        }
+      rescue
+        puts "file not found: loading new game instead:"
+        return Game.new()
+      end
+    end
+
+
   def initialize(white=Human.new(WHITE),black=Human.new(BLACK))
     @players = []
     @players << white
@@ -502,9 +532,24 @@ class Game
     return piecesArray
   end
 
-  def self.create_game
-    return Game.new
+  def self.restore_from_save?
+    puts "would you like to load your previous game? enter 'y' to load, anything else to begin a new game"
+    return gets.chomp.downcase == "y" ? Game.load_game : Game.new
   end
+
+  def self.create_game
+    if restore_from_save?
+      Game.load_game
+    else
+      Game.new
+    end
+  end
+
+  def save_instead_of_guessing?
+    puts "would you like to save and quit? enter 'y' to save and quit, anything else to continue playing"
+    return gets.chomp.downcase == "y"
+  end
+
 
   def play_game
 
@@ -514,6 +559,11 @@ class Game
 
       display_check_warning if check?
 
+
+      if save_instead_of_guessing?
+        save_game
+        return
+      end
 
       move = active_player.prompt_player_for_move
       #returns [:a1,:a3], e.g.
@@ -910,9 +960,8 @@ class Game
   end
 end
 
-game = Game.create_game
-
-#uncomment next line to play
+#uncomment next two lines to play
+#game = Game.create_game
 #game.play_game
 
 
