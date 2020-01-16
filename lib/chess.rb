@@ -59,7 +59,7 @@ end
 
 
 class Player
-  attr_accessor :color
+  attr_accessor :color, :squares
   
   def initialize(color)
     @color = color
@@ -68,7 +68,6 @@ class Player
   def to_s
     color
   end
-
 end
 
 class Human < Player
@@ -95,10 +94,31 @@ class Human < Player
     return gets.chomp.capitalize
   end
 
+  def save_instead_of_guessing?
+    puts "would you like to save and quit? enter 'y' to save and quit, anything else to continue playing"
+    return gets.chomp.downcase == "y"
+  end
+
+
 end
 
 class Computer < Player
 
+  def prompt_player_for_move
+    movesArray = []
+    squares.filter{|square| !square.empty?}.each{|square| 
+      movesArray += square.piece.moves + square.piece.special_moves
+    }
+    return movesArray.sample
+  end
+
+  def prompt_for_promotion_type
+    return PROMOTIONS.sample
+  end
+
+  def save_instead_of_guessing?
+    return false
+  end
 end
 
 
@@ -487,7 +507,10 @@ class Game
       end
       color = color == WHITE ? BLACK : WHITE
     end
-    #set up the board
+
+    #each player should be able to see all of the squares
+    @players[0].squares = @squares
+    @players[1].squares = @squares
   end
 
   def get_square squareSymbol
@@ -545,11 +568,6 @@ class Game
     end
   end
 
-  def save_instead_of_guessing?
-    puts "would you like to save and quit? enter 'y' to save and quit, anything else to continue playing"
-    return gets.chomp.downcase == "y"
-  end
-
 
   def play_game
 
@@ -560,7 +578,7 @@ class Game
       display_check_warning if check?
 
 
-      if save_instead_of_guessing?
+      if active_player.save_instead_of_guessing?
         save_game
         return
       end
@@ -568,7 +586,7 @@ class Game
       move = active_player.prompt_player_for_move
       #returns [:a1,:a3], e.g.
       until valid_move?(move) && out_of_check?(move)
-        display_invalid_move_warning
+        display_invalid_move_warning unless active_player.is_a?(Computer)
         move = active_player.prompt_player_for_move
       end
       #create_move
@@ -849,10 +867,16 @@ class Game
     destSquare = get_square(move[1])
     king = startSquare.piece
 
+    #only the king can castle
     return false unless king.is_a?(King)
+    
+    #this isn't castling if it isn't one of the king's special moves
+    return false unless king.special_moves.include?(move)
     
     #king can't have moved yet
     return false if king.moved
+
+
 
     #determine queenside or kingside
     queenside = destSquare.minus(startSquare) == QUEENSIDE ? true : false
@@ -860,6 +884,12 @@ class Game
     rookSquare = queenside ? get_square(startSquare.plus([0,-4]))  : get_square(startSquare.plus([0,3]))
     
     rook = rookSquare.piece
+
+    return false if rook.nil?
+    #the rook moved, and there's nothing there now.
+    
+    return false unless rook.is_a?(Rook)
+    #something else moved to the rook's spot
 
     #rook can't have moved yet
     return false if rook.moved
